@@ -5,6 +5,7 @@ import type { SessionResponse } from "@/app/api/session/route";
 import { PersonaMascot, PERSONA_META } from "@/components/mascot";
 import { CallStage, type EndPayload } from "@/components/CallStage";
 import { ReportView } from "@/components/ReportView";
+import { BrandCard, Wordmark } from "@/components/Brand";
 
 type Step = "setup" | "loading" | "interview" | "gate" | "negotiation" | "report";
 
@@ -84,8 +85,8 @@ export default function Page() {
   useEffect(() => {
     if (step !== "report" || (!interviewReport && !negReport)) return;
     try {
-      const prev = JSON.parse(localStorage.getItem("offer-room-sessions") ?? "[]");
-      localStorage.setItem("offer-room-sessions", JSON.stringify([...prev, { at: Date.now(), persona, interviewReport, negReport }].slice(-10)));
+      const prev = JSON.parse(localStorage.getItem("int-review-sessions") ?? "[]");
+      localStorage.setItem("int-review-sessions", JSON.stringify([...prev, { at: Date.now(), persona, interviewReport, negReport }].slice(-10)));
     } catch {}
   }, [step, interviewReport, negReport, persona]);
 
@@ -94,9 +95,8 @@ export default function Page() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-6">
       <header className="mb-10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent)] shadow-[0_0_14px_var(--accent)]" />
-          <span className="text-lg font-semibold tracking-tight">Offer Room</span>
+        <div className="flex items-center gap-4">
+          <Wordmark size={26} />
           <span className="hidden text-xs text-white/40 sm:inline">mock interviews with personas who hide what they think</span>
         </div>
         <div className="flex items-center gap-2">
@@ -114,6 +114,7 @@ export default function Page() {
 
       {err && <div className="mb-6 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">{err}</div>}
 
+      {step === "setup" && <div className="mb-10"><BrandCard /></div>}
       {step === "setup" && (
         <section className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start">
           <div className="flex flex-col items-center gap-3">

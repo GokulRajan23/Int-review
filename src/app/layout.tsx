@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Offer Room",
+  title: "int_review ()",
   description: "Voice mock interviews with personas who hide what they think until the debrief.",
 };
 
