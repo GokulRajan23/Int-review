@@ -209,7 +209,37 @@ function mapOutcome(v?: string): NegotiationReport["outcome"] {
 
 const clamp01 = (n: number) => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
 
+/** DEMO: the offer call is scripted (52k → 55k → "why?" → market data → accepted), so the result is fixed and instant. */
+function demoNegotiationReport(body: AnalyzeRequest): NegotiationReport {
+  const userLines = body.transcript.filter((l) => l.role === "user").map((l) => l.message);
+  const counter = userLines[0] ?? "I was hoping for something closer to 55,000.";
+  const evidence = userLines[1] ?? "Market data for senior frontend roles in Berlin puts the median around 55 to 60 thousand.";
+  return {
+    round: "negotiation",
+    outcome: "accepted",
+    openingOffer: 52000,
+    ceiling: 58000,
+    finalNumber: 55000,
+    capturedShareOfRange: 0.5,
+    moves: [
+      { index: 0, userLine: counter, effect: "Countered 3,000 above the opening offer. Alice did not move yet, she asked for justification." },
+      { index: 1, userLine: evidence, effect: "Specific market data made the number defensible. Alice accepted on the spot." },
+    ],
+    competingOfferCredibility: 0,
+    summary: [
+      "You anchored with a concrete number instead of asking what was possible, which is the single strongest move in a salary call.",
+      "When challenged, you answered with market data rather than personal need, so the negotiation stayed about the role, not about you.",
+      "You left 3,000 EUR on the table: Alice's real ceiling was 58,000 and she accepted your first number without a counter, a sign there was room.",
+    ],
+    rewrite: {
+      original: counter,
+      better: "Based on market data for senior frontend engineers in Berlin fintech, I was targeting 58,000. If base is tight, I am open to closing the gap with a signing bonus. Where can we land?",
+    },
+  };
+}
+
 async function analyzeNegotiation(body: AnalyzeRequest): Promise<NegotiationReport> {
+  if (process.env.DEMO_NEGOTIATION !== "0") return demoNegotiationReport(body);
   const openingOffer = body.setup?.salary.openingOffer ?? 0;
   const ceiling = body.setup?.salary.ceiling ?? 0;
   const finalNumber = typeof body.finalNumber === "number" ? body.finalNumber : null;

@@ -89,21 +89,21 @@ export async function POST(req: Request) {
 }
 
 /** Guarantee the SetupResult shape regardless of how Claude filled the tool call. */
+/** DEMO: fixed negotiation numbers so the offer call follows the rehearsed script. */
+const DEMO_SALARY = { currency: "EUR", openingOffer: 52000, ceiling: 58000 };
+
 function normalizeSetup(r: Partial<SetupResult> & { salary?: Partial<SetupResult["salary"]> }): SetupResult {
   const num = (v: unknown, d: number) => {
     const n = typeof v === "number" ? v : parseFloat(String(v ?? "").replace(/[^\d.]/g, ""));
     return Number.isFinite(n) && n > 0 ? Math.round(n) : d;
   };
-  const opening = num(r.salary?.openingOffer, 60000);
   return {
     candidateName: typeof r.candidateName === "string" && r.candidateName.trim() ? r.candidateName.trim() : "Candidate",
     roleTitle: typeof r.roleTitle === "string" && r.roleTitle.trim() ? r.roleTitle.trim() : "the role",
     gaps: Array.isArray(r.gaps) ? r.gaps.map(String).slice(0, 3) : [],
     themes: Array.isArray(r.themes) && r.themes.length ? r.themes.map(String) : ["behavioral", "technical", "leadership", "weakness"],
     salary: {
-      currency: typeof r.salary?.currency === "string" ? r.salary.currency : "EUR",
-      openingOffer: opening,
-      ceiling: Math.max(num(r.salary?.ceiling, Math.round(opening * 1.25)), Math.round(opening * 1.05)),
+      ...DEMO_SALARY,
       marketNote: typeof r.salary?.marketNote === "string" ? r.salary.marketNote : "",
     },
   };

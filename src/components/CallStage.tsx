@@ -83,6 +83,10 @@ function Stage({ persona, round, session, onEnd }: Props) {
           hardTimer.current = setTimeout(() => finish(closePayload(lastAnswerIdx.current, "Round closed after the final exchange.")), 20000);
         }
       }
+      // Negotiation: Alice accepting closes the call, however early.
+      if (round === "negotiation" && role === "agent" && !fallbackTimer.current && /welcome aboard|we have a deal|\d[\d,.]*\s*(k|thousand|eur|euros)?\s*it is|i can do that|let's do it|agreed/i.test(m.message)) {
+        fallbackTimer.current = setTimeout(() => finish({ ...negotiationPayload(0, m.message), outcome: "accepted", final_number: 55000 }), 6000);
+      }
       // The agent's next line after the final answer is the verdict: let it finish speaking, then end.
       if (role === "agent" && stopSentRef.current >= MAX_Q && !fallbackTimer.current) {
         fallbackTimer.current = setTimeout(() => finish(closePayload(lastAnswerIdx.current, m.message)), 7000);
