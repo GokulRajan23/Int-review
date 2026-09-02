@@ -33,6 +33,18 @@ function Stage({ persona, round, session, onEnd }: Props) {
   const stopSentRef = useRef(0);
   const fallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Close-out waits for the persona to finish speaking instead of a fixed clock. */
+  const pendingFinish = useRef<EndPayload | null>(null);
+  const heardSpeaking = useRef(false);
+  const schedulePendingFinish = (payload: EndPayload, backstopMs = 15000) => {
+    if (endedRef.current) return;
+    // A tool call carries the authoritative payload; let it replace a line-derived one.
+    pendingFinish.current = payload;
+    if (fallbackTimer.current) return;
+    heardSpeaking.current = false;
+    // Backstop in case audio never plays (or already finished before the tool arrived).
+    fallbackTimer.current = setTimeout(() => pendingFinish.current && finish(pendingFinish.current), backstopMs);
+  };
   const verdictFromAgentLines = (since: number) => {
     const txt = linesRef.current.slice(since).filter((l) => l.role === "agent").map((l) => l.message).join(" ").toLowerCase();
     return /congratulations|selected for the next round/.test(txt) ? "advance" : /get back to you/.test(txt) ? "reject" : "unknown";
@@ -84,12 +96,12 @@ function Stage({ persona, round, session, onEnd }: Props) {
         }
       }
       // Negotiation: Alice accepting closes the call, however early.
-      if (round === "negotiation" && role === "agent" && !fallbackTimer.current && /welcome aboard|we have a deal|\d[\d,.]*\s*(k|thousand|eur|euros)?\s*it is|i can do that|let's do it|agreed/i.test(m.message)) {
-        fallbackTimer.current = setTimeout(() => finish({ ...negotiationPayload(0, m.message), outcome: "accepted", final_number: 55000 }), 6000);
+      if (round === "negotiation" && role === "agent" && !pendingFinish.current && /welcome aboard|we have a deal|\d[\d,.]*\s*(k|thousand|eur|euros)?\s*it is|i can do that|let's do it|agreed/i.test(m.message)) {
+        schedulePendingFinish({ ...negotiationPayload(0, m.message), outcome: "accepted", final_number: 55000 });
       }
       // The agent's next line after the final answer is the verdict: let it finish speaking, then end.
-      if (role === "agent" && stopSentRef.current >= MAX_Q && !fallbackTimer.current) {
-        fallbackTimer.current = setTimeout(() => finish(closePayload(lastAnswerIdx.current, m.message)), 7000);
+      if (role === "agent" && stopSentRef.current >= MAX_Q && !pendingFinish.current) {
+        schedulePendingFinish(closePayload(lastAnswerIdx.current, m.message));
       }
     },
     onError: (e) => setError(String(e)),
@@ -105,7 +117,7 @@ function Stage({ persona, round, session, onEnd }: Props) {
     endedRef.current = true;
     if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
     if (hardTimer.current) clearTimeout(hardTimer.current);
-    setTimeout(() => { try { conv.endSession(); } catch {} onEnd(linesRef.current, payload); }, 1800);
+    setTimeout(() => { try { conv.endSession(); } catch {} onEnd(linesRef.current, payload); }, 600);
   };
 
   const start = () => {
@@ -117,8 +129,8 @@ function Stage({ persona, round, session, onEnd }: Props) {
       overrides: session.overrides,
       dynamicVariables: session.dynamicVariables,
       clientTools: {
-        end_round: (p: Record<string, unknown>) => { finish(p as EndPayload); return "ok"; },
-        end_negotiation: (p: Record<string, unknown>) => { finish(p as EndPayload); return "ok"; },
+        end_round: (p: Record<string, unknown>) => { schedulePendingFinish(p as EndPayload, 6000); return "ok"; },
+        end_negotiation: (p: Record<string, unknown>) => { schedulePendingFinish(p as EndPayload, 6000); return "ok"; },
       },
     } as Parameters<typeof conv.startSession>[0]);
   };
@@ -128,6 +140,16 @@ function Stage({ persona, round, session, onEnd }: Props) {
     if (conv.status !== "connected") return "idle";
     return conv.isSpeaking ? "speaking" : "listening";
   }, [conv.status, conv.isSpeaking]);
+
+  // When a close-out is pending, end the call ~1s after the persona finishes their line.
+  useEffect(() => {
+    if (!pendingFinish.current || endedRef.current) return;
+    if (conv.isSpeaking) { heardSpeaking.current = true; return; }
+    if (!heardSpeaking.current) return;
+    const t = setTimeout(() => pendingFinish.current && finish(pendingFinish.current), 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conv.isSpeaking]);
 
   // Mute the mic while the persona speaks so room noise cannot interrupt them; reopen shortly after.
   useEffect(() => {
