@@ -195,7 +195,8 @@ function Negotiation({ r }: { r: NegotiationReport }) {
         <p className="mt-1 text-sm font-medium" style={{ color: "var(--accent)" }}>Their real ceiling was {fmt(r.ceiling)}</p>
       </Panel>
 
-      <Panel title="Competing offer credibility">
+      <Panel title="Leverage credibility">
+        <p className="mb-3 text-xs text-white/45">How believable your case for the number was, whether market data or a competing offer. Vague claims score low, specifics score high.</p>
         <div className="flex items-center gap-4">
           <div className="h-2 flex-1 rounded-full bg-white/10">
             <div className="h-2 rounded-full" style={{ width: `${r.competingOfferCredibility}%`, background: "var(--accent)" }} />

@@ -225,7 +225,7 @@ function demoNegotiationReport(body: AnalyzeRequest): NegotiationReport {
       { index: 0, userLine: counter, effect: "Countered 3,000 above the opening offer. Alice did not move yet, she asked for justification." },
       { index: 1, userLine: evidence, effect: "Specific market data made the number defensible. Alice accepted on the spot." },
     ],
-    competingOfferCredibility: 0,
+    competingOfferCredibility: 82,
     summary: [
       "You anchored with a concrete number instead of asking what was possible, which is the single strongest move in a salary call.",
       "When challenged, you answered with market data rather than personal need, so the negotiation stayed about the role, not about you.",
