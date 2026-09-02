@@ -1,0 +1,31 @@
+/* Shared mascot animation contract. Faces use classes: .eye .brow .mouth .accessory .lid */
+.mascot { display: block; overflow: visible; filter: drop-shadow(0 0 18px var(--accent)) drop-shadow(0 0 48px color-mix(in srgb, var(--accent) 45%, transparent)); }
+.mascot .head { fill: #0b1220; stroke: var(--accent); stroke-width: 2.5; }
+.mascot .head-shine { fill: url(#mascotShine); opacity: .35; }
+.mascot .eye { fill: var(--accent); transform-box: fill-box; transform-origin: center; }
+.mascot .brow { stroke: var(--accent); stroke-width: 3; fill: none; stroke-linecap: round; transform-box: fill-box; transform-origin: center; }
+.mascot .mouth { stroke: var(--accent); stroke-width: 3; fill: none; stroke-linecap: round; transform-box: fill-box; transform-origin: center; }
+.mascot .accessory { stroke: var(--accent); fill: none; stroke-width: 2.5; stroke-linecap: round; opacity: .9; }
+.mascot .body { fill: #0b1220; stroke: var(--accent); stroke-width: 2; opacity: .8; }
+
+/* idle: slow float + occasional blink */
+.mascot { animation: mascot-float 4s ease-in-out infinite; }
+.mascot .eye { animation: mascot-blink 5s ease-in-out infinite; }
+
+/* listening: eyes wide, gentle bob, blink faster */
+.mascot[data-state="listening"] .eye { animation: mascot-blink 2.6s ease-in-out infinite; transform: scaleY(1.15); }
+.mascot[data-state="listening"] { animation: mascot-float 2.4s ease-in-out infinite; }
+
+/* speaking: mouth pulses */
+.mascot[data-state="speaking"] .mouth { animation: mascot-talk .28s ease-in-out infinite alternate; }
+.mascot[data-state="speaking"] .eye { animation: none; }
+
+/* thinking: eyes narrow, head tilt */
+.mascot[data-state="thinking"] .eye { animation: none; transform: scaleY(.45); }
+.mascot[data-state="thinking"] .brow { transform: translateY(-3px) rotate(-6deg); }
+.mascot[data-state="thinking"] { animation: mascot-tilt 1.8s ease-in-out infinite; }
+
+@keyframes mascot-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+@keyframes mascot-tilt { 0%,100% { transform: rotate(-3deg) } 50% { transform: rotate(3deg) } }
+@keyframes mascot-blink { 0%,92%,100% { transform: scaleY(1) } 95% { transform: scaleY(.08) } }
+@keyframes mascot-talk { from { transform: scaleY(.6) } to { transform: scaleY(1.6) } }

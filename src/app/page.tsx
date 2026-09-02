@@ -1,69 +1,186 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState } from "react";
+import type { Persona, Report, SetupResult, TranscriptLine, InterviewReport, NegotiationReport } from "@/lib/types";
+import type { SessionResponse } from "@/app/api/session/route";
+import { PersonaMascot, PERSONA_META } from "@/components/mascot";
+import { CallStage, type EndPayload } from "@/components/CallStage";
+import { ReportView } from "@/components/ReportView";
 
-export default function Home() {
+type Step = "setup" | "loading" | "interview" | "gate" | "negotiation" | "report";
+
+const SAMPLE_RESUME = `Gokul Rajan. Software engineer, 3 years. Built React/Next.js dashboards, Python data pipelines, Supabase backends. Won Titanom x DeutschlandGPT hackathon with an AI micro-lesson app. MSc, Munich.`;
+const SAMPLE_JD = `Senior Frontend Engineer, Berlin fintech. React, TypeScript, testing culture, mentoring juniors, leading feature delivery. Experience with payments or regulated environments preferred.`;
+
+export default function Page() {
+  const [step, setStep] = useState<Step>("setup");
+  const [persona, setPersona] = useState<Persona>("engineer");
+  const [resume, setResume] = useState("");
+  const [jd, setJd] = useState("");
+  const [setup, setSetup] = useState<SetupResult | null>(null);
+  const [session, setSession] = useState<SessionResponse | null>(null);
+  const [verdict, setVerdict] = useState<EndPayload | null>(null);
+  const [interviewReport, setInterviewReport] = useState<InterviewReport | null>(null);
+  const [negReport, setNegReport] = useState<NegotiationReport | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const active: Persona = step === "negotiation" ? "hr" : persona;
+  const accent = PERSONA_META[active].accent;
+  useEffect(() => { document.documentElement.style.setProperty("--accent", accent); }, [accent]);
+
+  const unlockedHr = verdict?.verdict === "advance";
+
+  async function post<T>(url: string, body: unknown): Promise<T> {
+    const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error ?? r.statusText);
+    return j as T;
+  }
+
+  async function enterRoom() {
+    setErr(null); setStep("loading");
+    setBusy(persona === "hr" ? "Alice is pulling up the offer…" : `${PERSONA_META[persona].name} is reading your resume…`);
+    try {
+      const s = await post<SetupResult>("/api/setup", { resume, jd, persona });
+      setSetup(s);
+      const sess = await post<SessionResponse>("/api/session", { persona, setup: s, resume, jd });
+      setSession(sess); setStep(persona === "hr" ? "negotiation" : "interview");
+    } catch (e) { setErr((e as Error).message); setStep("setup"); }
+    finally { setBusy(null); }
+  }
+
+  async function onInterviewEnd(transcript: TranscriptLine[], payload: EndPayload) {
+    setVerdict(payload); setStep("gate");
+    post<Report>("/api/analyze", { round: "interview", transcript, setup, verdict: payload.verdict })
+      .then((r) => {
+        const rep = r as InterviewReport;
+        setInterviewReport(rep);
+        // If the agent never spoke a clear verdict, take the one the debrief derived.
+        if (payload.verdict !== "advance" && payload.verdict !== "reject") setVerdict({ ...payload, verdict: rep.verdict });
+        // Show the score automatically once it is ready.
+        setTimeout(() => setStep((cur) => (cur === "gate" ? "report" : cur)), 2500);
+      })
+      .catch((e) => setErr((e as Error).message));
+  }
+
+  async function startNegotiation() {
+    setErr(null); setStep("loading"); setBusy("Alice is pulling up the offer…");
+    try {
+      const sess = await post<SessionResponse>("/api/session", { persona: "hr", setup, resume, jd });
+      setSession(sess); setStep("negotiation");
+    } catch (e) { setErr((e as Error).message); setStep("gate"); }
+    finally { setBusy(null); }
+  }
+
+  async function onNegotiationEnd(transcript: TranscriptLine[], payload: EndPayload) {
+    setStep("report"); setBusy("Scoring the negotiation…");
+    try {
+      const r = await post<Report>("/api/analyze", { round: "negotiation", transcript, setup, verdict: payload.outcome, finalNumber: payload.final_number });
+      setNegReport(r as NegotiationReport);
+    } catch (e) { setErr((e as Error).message); }
+    finally { setBusy(null); }
+  }
+
+  useEffect(() => {
+    if (step !== "report" || (!interviewReport && !negReport)) return;
+    try {
+      const prev = JSON.parse(localStorage.getItem("offer-room-sessions") ?? "[]");
+      localStorage.setItem("offer-room-sessions", JSON.stringify([...prev, { at: Date.now(), persona, interviewReport, negReport }].slice(-10)));
+    } catch {}
+  }, [step, interviewReport, negReport, persona]);
+
+  const others = (["founder", "engineer", "hr"] as Persona[]).filter((p) => p !== active);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-6">
+      <header className="mb-10 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent)] shadow-[0_0_14px_var(--accent)]" />
+          <span className="text-lg font-semibold tracking-tight">Offer Room</span>
+          <span className="hidden text-xs text-white/40 sm:inline">mock interviews with personas who hide what they think</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {others.map((p) => {
+            const canSwitch = step === "setup";
+            return (
+              <button key={p} onClick={() => canSwitch && setPersona(p)} disabled={!canSwitch} title={`${PERSONA_META[p].name} · ${PERSONA_META[p].title}`}
+                className={`relative rounded-2xl border border-white/10 bg-white/5 p-1 transition ${canSwitch ? "opacity-70 hover:opacity-100" : "opacity-35"}`}>
+                <PersonaMascot persona={p} size={52} />
+              </button>
+            );
+          })}
+        </div>
+      </header>
+
+      {err && <div className="mb-6 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">{err}</div>}
+
+      {step === "setup" && (
+        <section className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start">
+          <div className="flex flex-col items-center gap-3">
+            <PersonaMascot persona={persona} size={260} />
+            <div className="text-center"><div className="text-2xl font-semibold">{PERSONA_META[persona].name}</div><div className="text-sm text-white/50">{PERSONA_META[persona].title}</div></div>
+            <div className="flex gap-2">
+              {(["founder", "engineer", "hr"] as Persona[]).map((p) => (
+                <button key={p} onClick={() => setPersona(p)} className={p === persona ? "btn-accent" : "btn-ghost"}>{PERSONA_META[p].title}</button>
+              ))}
+            </div>
+            <p className="max-w-xs text-center text-xs text-white/45">{persona === "founder" ? "Chill, curious, wants to know if you can ship. Easy to relax around, which is the trap." : persona === "hr" ? "Polite, immovable, and holding a number she will not say out loud. Skip straight to the offer call." : "Strict, terse, pushes on every detail. Vague answers cost you."}</p>
+          </div>
+          <div className="glass space-y-4 p-6">
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-widest text-white/50">Your resume</label>
+              <textarea className="field h-40" value={resume} onChange={(e) => setResume(e.target.value)} placeholder="Paste your resume text…" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs uppercase tracking-widest text-white/50">Job description</label>
+              <textarea className="field h-32" value={jd} onChange={(e) => setJd(e.target.value)} placeholder="Paste the job posting…" />
+            </div>
+            <div className="flex items-center gap-3">
+              <button className="btn-accent" disabled={!resume.trim() || !jd.trim()} onClick={enterRoom}>Enter the room</button>
+              <button className="btn-ghost" onClick={() => { setResume(SAMPLE_RESUME); setJd(SAMPLE_JD); }}>Use sample</button>
+              <span className="text-xs text-white/35">Three questions with the interviewer, then the offer call with Alice. Or pick Alice and skip straight to the number.</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {step === "loading" && (
+        <section className="flex flex-col items-center gap-4 py-10">
+          <PersonaMascot persona={active} state="thinking" size={260} />
+          <p className="text-white/60">{busy}</p>
+        </section>
+      )}
+
+      {step === "interview" && session && <CallStage persona={persona} round="interview" session={session} onEnd={onInterviewEnd} />}
+      {step === "negotiation" && session && <CallStage persona="hr" round="negotiation" session={session} onEnd={onNegotiationEnd} />}
+
+      {step === "gate" && (
+        <section className="flex flex-col items-center gap-6 py-6 text-center">
+          <PersonaMascot persona={persona} state="idle" size={240} />
+          <h1 className="max-w-2xl text-3xl font-semibold leading-tight sm:text-4xl">
+            {unlockedHr ? "Congratulations! You are selected for the next round!" : "We will get back to you."}
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+          {verdict?.reason && <p className="max-w-xl text-white/55">“{verdict.reason}”</p>}
+          {typeof verdict?.impression === "number" && <p className="font-mono text-sm text-white/50">hidden impression score revealed: <span className="text-[var(--accent)]">{verdict.impression}/100</span></p>}
+          {!interviewReport && <p className="text-xs text-white/40">Scoring your answers… the debrief opens automatically.</p>}
+          <div className="flex gap-3">
+            <button className="btn-accent" onClick={startNegotiation}>Take the offer call</button>
+            <button className="btn-ghost" onClick={() => setStep("report")}>{interviewReport ? "See the debrief" : "Debrief is being written…"}</button>
+          </div>
+        </section>
+      )}
+
+      {step === "report" && (
+        <section className="space-y-10">
+          {busy && <p className="text-white/60">{busy}</p>}
+          {interviewReport ? <ReportView report={interviewReport} accent={PERSONA_META[persona].accent} /> : !negReport && <p className="text-white/50">Writing the interview debrief…</p>}
+          {negReport && <ReportView report={negReport} accent={PERSONA_META.hr.accent} />}
+          <div className="flex gap-3 pb-10">
+            {interviewReport && !negReport && <button className="btn-accent" onClick={startNegotiation}>Take the offer call</button>}
+            <button className="btn-ghost" onClick={() => location.reload()}>Run it again</button>
+          </div>
+        </section>
+      )}
+    </main>
   );
 }
