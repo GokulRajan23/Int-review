@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "int_review ()",
-  description: "Voice mock interviews with personas who hide what they think until the debrief.",
+  description: "Find your weak spots before they do.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,6 +1,6 @@
 # int_review
 
-Voice mock interviews with personas who hide what they think until the debrief.
+Find your weak spots before they do.
 
 You paste a resume and a job description. A persona interviews you by voice, asks three questions, and gives a verdict. If you pass, an HR persona calls with an offer and you negotiate. After each round you get a debrief: filler words, hedging, STAR structure, the answer that decided the verdict, and a rewrite of your weakest answer. The negotiation debrief reveals the ceiling HR never told you and how much of the range you captured.
 

@@ -97,7 +97,7 @@ export default function Page() {
       <header className="mb-10 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Wordmark size={26} />
-          <span className="hidden text-xs text-white/40 sm:inline">mock interviews with personas who hide what they think</span>
+          <span className="hidden text-xs text-white/40 sm:inline">find your weak spots before they do</span>
         </div>
         <div className="flex items-center gap-2">
           {others.map((p) => {
