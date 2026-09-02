@@ -151,15 +151,6 @@ function Stage({ persona, round, session, onEnd }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv.isSpeaking]);
 
-  // Mute the mic while the persona speaks so room noise cannot interrupt them; reopen shortly after.
-  useEffect(() => {
-    if (conv.status !== "connected") return;
-    if (conv.isSpeaking) { conv.setMuted(true); return; }
-    const t = setTimeout(() => conv.setMuted(false), 250);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conv.isSpeaking, conv.status]);
-
   const questionCount = Math.min(lines.filter((l) => l.role === "agent").length, 3);
   const live = conv.status === "connected";
   const recent = lines.slice(-8);
